@@ -11,11 +11,13 @@ namespace MissionPlanner.ArduPilot
     {
         private static readonly ILog log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
-        static List<MAVLink.mavlink_ais_vessel_t> _Vessels = new List<MAVLink.mavlink_ais_vessel_t>();
+        static List<(DateTime TS, MAVLink.mavlink_ais_vessel_t msg)> _Vessels = new List<(DateTime, MAVLink.mavlink_ais_vessel_t)>();
+
+        public static int Age { get; set; } = 60 * 5;
 
         public static MAVLink.mavlink_ais_vessel_t[] Vessels
         {
-            get { return _Vessels.ToArray(); }
+            get { return _Vessels.Where(a=>a.TS.AddSeconds(Age) > DateTime.Now).Select(a=>a.msg).ToArray(); }
         }
 
         public static void Start(MAVLinkInterface mav)
@@ -30,15 +32,15 @@ namespace MissionPlanner.ArduPilot
 
                         lock (_Vessels)
                         {
-                            var existing = Vessels.Where(a => a.MMSI == msg.MMSI);
+                            var existing = _Vessels.Where(a => a.msg.MMSI == msg.MMSI);
                             if (existing.Count() == 0)
                             {
-                                _Vessels.Add(msg);
+                                _Vessels.Add((DateTime.Now, msg));
                             }
                             else
                             {
                                 _Vessels.Remove(existing.First());
-                                _Vessels.Add(msg);
+                                _Vessels.Add((DateTime.Now, msg));
                             }
                         }
                     }
